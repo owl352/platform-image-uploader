@@ -11,48 +11,123 @@ async function main() {
 
   console.log("Reading and compressing image...")
 
-  const compressedImage = await sharp('./example.jpg')
-    .resize(500)
-    .webp({
-      quality: 29,
-      alphaQuality:0,
-      smartSubsample: false,
-      preset: "picture",
-      effort: 6,
-      minSize: true,
-    })
-    .toBuffer()
+  const isAnimated = process.env.FILE_PATH.includes('.gif')
 
-  const base85Image = ascii85.encode(compressedImage).toString();
+  const data = await sharp(process.env.FILE_PATH, {animated:isAnimated})
+  const metadata = await data.metadata()
 
-  if (base85Image.length / CHUNK_SIZE >= 4) {
-    throw new Error('Image to large')
+  let compressedData
+
+  if(metadata.width>512){
+    data.resize(512)
+  }
+
+  if(isAnimated){
+    compressedData = await data
+      .gif({
+        reuse: false,
+        colors: 64,
+        effort: 1,
+        dither: 1,
+      })
+      .toBuffer()
+  }else{
+    compressedData = data
+      .webp({
+        quality: 29,
+        alphaQuality:0,
+        smartSubsample: false,
+        preset: "picture",
+        effort: 6,
+        minSize: true,
+      })
+      .toBuffer()
+  }
+
+  const base85Image = ascii85.encode(compressedData).toString();
+
+  if (base85Image.length / CHUNK_SIZE >= 115) {
+    throw new Error('Content to large')
   }
 
   console.log('Image has been read!')
 
-  const doc = utils.stringToChunks(base85Image, CHUNK_SIZE)
+  const chunks = utils.dataToChunks(base85Image, CHUNK_SIZE)
+
+  const docs = utils.dataToChunks(chunks, 4)
+
+  // TODO: For write
+  // let sliced = ''
+  //
+  // for(let i=0;i<docs.length;i++){
+  //   sliced = sliced + docs[i].join('')
+  // }
+  //
+  // const buff = ascii85.decode(sliced)
+  //
+  // await sharp(buff, {animated:isAnimated})
+  //   .toFile('./test_out.gif')
+
+
 
   const identity = await client.platform.identities.get(process.env.OWNER)
 
-  const document = await client.platform.documents.create(
-    `contract.chunks_string`,
-    identity,
-    doc
-  );
+  const documents = []
 
-  console.log("Document broadcast...")
+  console.log("Documents broadcast...")
+
+  for(let i=0;i<docs.length;i++){
+    const tmp = await client.platform.documents.create(
+      `contract.chunks_string`,
+      identity,
+      {
+        0: '',
+        1: '',
+        2: '',
+        3: '',
+        // rewrite
+        ...Object.assign({}, docs[i])
+      }
+    )
+
+    const documentBatch = {
+      create: [tmp],
+      replace: [],
+      delete: [],
+    }
+
+    await client.platform.documents.broadcast(documentBatch, identity)
+
+    documents.push(tmp)
+  }
+
+  console.log('Broadcasting links document...')
+
+  const ids = []
+
+  for(let i=0;i<documents.length;i++){
+    ids.push(documents[i].getId().toString())
+  }
+
+  const linksDocument = await client.platform.documents.create(
+    `contract.mega_chunks`,
+    identity,
+    {
+      media_type: isAnimated?0:1,
+      adresses: ids.join(',')
+    }
+  )
 
   const documentBatch = {
-    create: [document],
+    create: [linksDocument],
     replace: [],
     delete: [],
   }
 
   await client.platform.documents.broadcast(documentBatch, identity)
 
-  console.log("Document broadcasted!")
-  console.log(document.getId().toString())
+  console.log("Documents broadcasted!")
+  console.log(linksDocument.getId().toString())
 
   await client.disconnect();
 }

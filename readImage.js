@@ -3,6 +3,7 @@ const sharp = require('sharp');
 const ascii85 = require('ascii85')
 const utils = require('./utils');
 const process = require("process");
+const {Identifier} = require('dash').PlatformProtocol
 
 async function main() {
 
@@ -11,24 +12,45 @@ async function main() {
   console.log("Reading document from blockchain")
 
   const [documentRaw] = (await client.platform.documents.get(
-    'contract.chunks_string',
+    'contract.mega_chunks',
     {
       where: [
         ['$id', '=', process.env.DOCUMENT_ID]
       ]
     }))
 
-  const document = documentRaw.toObject()
+  const {media_type:mediaType, adresses:rawAdresses} = documentRaw.toObject()
 
   console.log('Document exist')
 
+  const addresses = rawAdresses.split(',')
 
-  const chunks = [document[1], document[2], document[3], document[4]];
+  const extendedChunksDocuments = await client.platform.documents.get(
+    'contract.chunks_string',
+    {
+      where: [
+        ['$id', 'in', addresses]
+      ],
+    })
 
-  let base85IMG = chunks.join('')
+  const chunksDocuments = extendedChunksDocuments.map(doc => doc.toObject());
 
-  await sharp(ascii85.decode(base85IMG))
-    .toFile('./readed.jpg')
+  const sortedChunksDocuments = addresses.map(id =>
+    chunksDocuments.find(doc => Identifier.from(doc.$id).toString() === id)
+  );
+
+  const textChunks = []
+
+  for (let documentIndex = 0; documentIndex < sortedChunksDocuments.length; documentIndex++) {
+    for(let chunk=0;chunk<4;chunk++){
+      textChunks.push(sortedChunksDocuments[documentIndex][chunk])
+    }
+  }
+
+  let base85IMG = textChunks.join('')
+
+  await sharp(ascii85.decode(base85IMG),{animated: mediaType===0})
+    .toFile(mediaType===0?'./readed.gif':'./readed.jpg')
 
   console.log('Done')
 

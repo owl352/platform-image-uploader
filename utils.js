@@ -25,18 +25,13 @@ module.exports = {
 
     return new Dash.Client(options)
   },
-  stringToChunks: (str, size)=>{
+  dataToChunks: (str, size)=>{
     const chunks = []
 
     for (let i = 0; i < str.length / size; i++) {
       chunks.push(str.slice(i * size, (i + 1) * size))
     }
 
-    return {
-      1: chunks[0] ?? '',
-      2: chunks[1] ?? '',
-      3: chunks[2] ?? '',
-      4: chunks[3] ?? '',
-    }
+    return chunks
   }
 }
