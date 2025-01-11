@@ -1,0 +1,18 @@
+{
+  "name": "image-uploader",
+  "version": "1.0.0",
+  "main": "writeImage.js",
+  "dependencies": {
+    "ascii85": "^1.0.2",
+    "dash": "^4.7.1",
+    "dotenv": "^16.4.7",
+    "sharp": "^0.33.5"
+  },
+  "scripts": {
+    "write": "node writeImage.js",
+    "read": "node readImage.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
