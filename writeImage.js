@@ -13,13 +13,14 @@ async function main() {
 
   const compressedImage = await sharp('./example.jpg')
     .resize(500)
-    .jpeg({
-      quality: 21,
-      mozjpeg: true,
-      progressive: false,
-      quantisationTable: 0,
-      optimizeCoding: true,
-      optimiseScans:true})
+    .webp({
+      quality: 29,
+      alphaQuality:0,
+      smartSubsample: false,
+      preset: "picture",
+      effort: 6,
+      minSize: true,
+    })
     .toBuffer()
 
   const base85Image = ascii85.encode(compressedImage).toString();
