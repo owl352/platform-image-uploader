@@ -56,50 +56,36 @@ async function main() {
 
   const docs = utils.dataToChunks(chunks, 4)
 
-  // TODO: For write
-  // let sliced = ''
-  //
-  // for(let i=0;i<docs.length;i++){
-  //   sliced = sliced + docs[i].join('')
-  // }
-  //
-  // const buff = ascii85.decode(sliced)
-  //
-  // await sharp(buff, {animated:isAnimated})
-  //   .toFile('./test_out.gif')
-
-
-
   const identity = await client.platform.identities.get(process.env.OWNER)
-
-  const documents = []
 
   console.log("Documents broadcast...")
 
-  for(let i=0;i<docs.length;i++){
-    const tmp = await client.platform.documents.create(
-      `contract.chunks_string`,
-      identity,
-      {
-        0: '',
-        1: '',
-        2: '',
-        3: '',
-        // rewrite
-        ...Object.assign({}, docs[i])
+  const documents = await Promise.all(
+    docs.map(async doc => {
+      const tmp = await client.platform.documents.create(
+        `contract.chunks_string`,
+        identity,
+        {
+          0: '',
+          1: '',
+          2: '',
+          3: '',
+          // rewrite
+          ...Object.assign({}, doc)
+        }
+      )
+
+      const documentBatch = {
+        create: [tmp],
+        replace: [],
+        delete: [],
       }
-    )
 
-    const documentBatch = {
-      create: [tmp],
-      replace: [],
-      delete: [],
-    }
+      await client.platform.documents.broadcast(documentBatch, identity)
 
-    await client.platform.documents.broadcast(documentBatch, identity)
-
-    documents.push(tmp)
-  }
+      return tmp
+    })
+  )
 
   console.log('Broadcasting links document...')
 
